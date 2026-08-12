@@ -1,0 +1,10 @@
+{% extends "public_base.html" %}
+{% block title %}{{ error_code }} · {{ brand.site_name }}{% endblock %}
+{% block hero_sub %}Something went wrong{% endblock %}
+{% block content %}
+<div class="card empty-state">
+  <h2>{{ error_code }}</h2>
+  <p>{{ error_message }}</p>
+  <a class="btn" href="/">Go home</a>
+</div>
+{% endblock %}

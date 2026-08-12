@@ -1,0 +1,13 @@
+{% extends "public_base.html" %}
+{% block title %}Protected · {{ brand.site_name }}{% endblock %}
+{% block hero_sub %}{{ share.name }}{% endblock %}
+{% block content %}
+<div class="card gate">
+  <h2>{{ brand.welcome_title }}</h2>
+  <p>This area is password protected. Enter the password sent to you.</p>
+  <form method="post" class="gate-form">
+    <input type="password" name="password" placeholder="Password" required autofocus>
+    <button type="submit" class="btn">Unlock</button>
+  </form>
+</div>
+{% endblock %}

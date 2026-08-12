@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}{{ share.name if share else brand.site_name }}{% endblock %} · {{ brand.site_name }}</title>
+<style>
+:root {
+  --primary: {{ brand.primary_color }};
+  --accent: {{ brand.accent_color }};
+  --bg: {{ brand.background_color }};
+  --card: {{ brand.card_color }};
+  --text: {{ brand.text_color }};
+  --border: color-mix(in srgb, {{ brand.primary_color }} 25%, transparent);
+}
+</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/client.css') }}">
+</head>
+<body class="client">
+<header class="hero">
+  <div class="wrap">
+    {% if brand.logo_uri %}<img class="logo" src="{{ brand.logo_uri }}" alt="logo">{% endif %}
+    <h1>{% block hero_title %}{{ brand.site_name }}{% endblock %}</h1>
+    <p class="tagline">{% block hero_sub %}{{ brand.tagline }}{% endblock %}</p>
+  </div>
+</header>
+<main class="wrap">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="flash {{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+  {% block content %}{% endblock %}
+</main>
+<footer class="foot"><div class="wrap">{{ brand.footer_text }}</div></footer>
+{% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,10 @@
+{% extends "public_base.html" %}
+{% block title %}{{ share.name }} · {{ brand.site_name }}{% endblock %}
+{% block hero_title %}{{ share.name }}{% endblock %}
+{% block hero_sub %}{{ brand.tagline }}{% endblock %}
+{% block content %}
+<div class="card empty-state">
+  <p>{{ reason }}</p>
+  <p class="muted">Please contact us if you expected files here.</p>
+</div>
+{% endblock %}
