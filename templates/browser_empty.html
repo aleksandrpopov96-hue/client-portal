@@ -1,0 +1,10 @@
+{% extends "public_base.html" %}
+{% block title %}Files · {{ brand.site_name }}{% endblock %}
+{% block hero_title %}Files{% endblock %}
+{% block hero_sub %}You are signed in as {{ user.username }}{% endblock %}
+{% block content %}
+<div class="card empty-state">
+  <p>{{ reason }}</p>
+  <a class="btn" href="{{ url_for('browser.index') }}">Go to root</a>
+</div>
+{% endblock %}

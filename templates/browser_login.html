@@ -1,0 +1,14 @@
+{% extends "public_base.html" %}
+{% block title %}Log in · {{ brand.site_name }}{% endblock %}
+{% block hero_sub %}Log in to access files{% endblock %}
+{% block content %}
+<div class="card gate">
+  <h2>Log in</h2>
+  <p>Enter the username and password provided to you.</p>
+  <form method="post" class="gate-form">
+    <input type="text" name="username" placeholder="Username" required autofocus autocomplete="username">
+    <input type="password" name="password" placeholder="Password" required autocomplete="current-password">
+    <button type="submit" class="btn">Log in</button>
+  </form>
+</div>
+{% endblock %}

@@ -38,6 +38,20 @@ def init_db(db_path: str) -> None:
                 updated_at TEXT NOT NULL,
                 last_used_at TEXT
             );
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                enabled INTEGER NOT NULL DEFAULT 1,
+                allow_download INTEGER NOT NULL DEFAULT 1,
+                allow_upload INTEGER NOT NULL DEFAULT 0,
+                allow_delete INTEGER NOT NULL DEFAULT 0,
+                max_upload_size_mb INTEGER NOT NULL DEFAULT 100,
+                allowed_extensions TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                last_login_at TEXT
+            );
             """
         )
 
@@ -161,3 +175,94 @@ def touch_share(share_id: int) -> None:
     now = _now()
     with _lock, get_conn() as conn:
         conn.execute("UPDATE shares SET last_used_at=? WHERE id=?", (now, share_id))
+
+
+def create_user(
+    username: str,
+    password_hash: str,
+    enabled: bool,
+    allow_download: bool,
+    allow_upload: bool,
+    allow_delete: bool,
+    max_upload_size_mb: int,
+    allowed_extensions: str | None,
+) -> int:
+    now = _now()
+    with _lock, get_conn() as conn:
+        cur = conn.execute(
+            "INSERT INTO users (username, password_hash, enabled, allow_download, "
+            "allow_upload, allow_delete, max_upload_size_mb, allowed_extensions, "
+            "created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (
+                username, password_hash, int(enabled), int(allow_download),
+                int(allow_upload), int(allow_delete), max_upload_size_mb,
+                allowed_extensions, now, now,
+            ),
+        )
+        return cur.lastrowid
+
+
+def update_user(
+    user_id: int,
+    username: str,
+    password_hash: str | None,
+    enabled: bool,
+    allow_download: bool,
+    allow_upload: bool,
+    allow_delete: bool,
+    max_upload_size_mb: int,
+    allowed_extensions: str | None,
+) -> None:
+    now = _now()
+    with _lock, get_conn() as conn:
+        if password_hash:
+            conn.execute(
+                "UPDATE users SET username=?, password_hash=?, enabled=?, "
+                "allow_download=?, allow_upload=?, allow_delete=?, "
+                "max_upload_size_mb=?, allowed_extensions=?, updated_at=? WHERE id=?",
+                (
+                    username, password_hash, int(enabled), int(allow_download),
+                    int(allow_upload), int(allow_delete), max_upload_size_mb,
+                    allowed_extensions, now, user_id,
+                ),
+            )
+        else:
+            conn.execute(
+                "UPDATE users SET username=?, enabled=?, allow_download=?, "
+                "allow_upload=?, allow_delete=?, max_upload_size_mb=?, "
+                "allowed_extensions=?, updated_at=? WHERE id=?",
+                (
+                    username, int(enabled), int(allow_download), int(allow_upload),
+                    int(allow_delete), max_upload_size_mb, allowed_extensions, now,
+                    user_id,
+                ),
+            )
+
+
+def delete_user(user_id: int) -> None:
+    with _lock, get_conn() as conn:
+        conn.execute("DELETE FROM users WHERE id=?", (user_id,))
+
+
+def get_user(user_id: int):
+    with _lock, get_conn() as conn:
+        row = conn.execute("SELECT * FROM users WHERE id=?", (user_id,)).fetchone()
+    return row
+
+
+def get_user_by_username(username: str):
+    with _lock, get_conn() as conn:
+        row = conn.execute("SELECT * FROM users WHERE username=?", (username,)).fetchone()
+    return row
+
+
+def list_users():
+    with _lock, get_conn() as conn:
+        rows = conn.execute("SELECT * FROM users ORDER BY username").fetchall()
+    return rows
+
+
+def touch_user_login(user_id: int) -> None:
+    now = _now()
+    with _lock, get_conn() as conn:
+        conn.execute("UPDATE users SET last_login_at=? WHERE id=?", (now, user_id))

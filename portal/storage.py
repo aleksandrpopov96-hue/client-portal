@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import io
 import os
 import re
@@ -22,30 +24,34 @@ class ShareExpired(Exception):
     pass
 
 
-def _resolve(share, relative: str) -> Path:
+def share_root(share) -> Path:
     storage_root = Path(current_app.config["STORAGE_ROOT"]).resolve()
-    share_root = (storage_root / share["subfolder"].lstrip("/")).resolve()
-    if not share_root.is_relative_to(storage_root):
+    share_path = (storage_root / share["subfolder"].lstrip("/")).resolve()
+    if not share_path.is_relative_to(storage_root):
         raise StorageError("Share folder is outside storage root")
+    return share_path
 
+
+def _resolve(root: Path, relative: str) -> Path:
+    root = root.resolve()
     if relative in ("", "/"):
-        return share_root
+        return root
 
     parts = [p for p in relative.split("/") if p not in _INVALID_SEGMENTS]
-    target = (share_root / "/".join(parts)).resolve()
-    if not target.is_relative_to(share_root):
-        raise StorageError("Path escapes the share")
+    target = (root / "/".join(parts)).resolve()
+    if not target.is_relative_to(root):
+        raise StorageError("Path escapes the allowed area")
     return target
 
 
-def share_exists(share) -> bool:
-    root = Path(current_app.config["STORAGE_ROOT"]).resolve()
-    share_root = (root / share["subfolder"].lstrip("/")).resolve()
-    return share_root.exists()
+def _rel(root: Path, path: Path) -> str:
+    root = root.resolve()
+    rel = path.resolve().relative_to(root)
+    return "" if rel == Path(".") else rel.as_posix()
 
 
-def list_dir(share, relative: str):
-    target = _resolve(share, relative)
+def list_dir(root: Path, relative: str):
+    target = _resolve(root, relative)
     if not target.exists():
         raise StorageError("Path does not exist")
     if not target.is_dir():
@@ -60,21 +66,14 @@ def list_dir(share, relative: str):
                 "is_dir": item.is_dir(),
                 "size": stat.st_size if item.is_file() else None,
                 "mtime": stat.st_mtime,
-                "relative": _rel(share, item),
+                "relative": _rel(root, item),
             }
         )
     return entries, relative, target
 
 
-def _rel(share, path: Path) -> str:
-    root = Path(current_app.config["STORAGE_ROOT"]).resolve()
-    share_root = (root / share["subfolder"].lstrip("/")).resolve()
-    rel = path.resolve().relative_to(share_root)
-    return "" if rel == Path(".") else rel.as_posix()
-
-
-def validate_extension(share, filename: str) -> None:
-    allowed = (share["allowed_extensions"] or "").strip()
+def validate_extension(allowed_extensions: str | None, filename: str) -> None:
+    allowed = (allowed_extensions or "").strip()
     if not allowed:
         return
     ext = Path(filename).suffix.lower().lstrip(".")
@@ -94,19 +93,25 @@ def safe_filename(filename: str) -> str:
     return base or "file"
 
 
-def upload_file(share, relative: str, filename: str, stream, content_length: int) -> str:
-    target_dir = _resolve(share, relative)
+def upload_file(
+    root: Path,
+    relative: str,
+    filename: str,
+    stream,
+    content_length: int,
+    max_upload_size_mb: int,
+    allowed_extensions: str | None,
+) -> str:
+    target_dir = _resolve(root, relative)
     if not target_dir.is_dir():
         raise StorageError("Upload target is not a directory")
 
     name = safe_filename(filename)
-    validate_extension(share, name)
+    validate_extension(allowed_extensions, name)
 
-    max_bytes = int(share["max_upload_size_mb"] or 0) * 1024 * 1024
+    max_bytes = int(max_upload_size_mb or 0) * 1024 * 1024
     if content_length and max_bytes and content_length > max_bytes:
-        raise StorageError(
-            f"File is too large (max {share['max_upload_size_mb']} MB)"
-        )
+        raise StorageError(f"File is too large (max {max_upload_size_mb} MB)")
 
     dest = target_dir / name
     dest = _unique_path(dest)
@@ -138,10 +143,10 @@ def _unique_path(path: Path) -> Path:
         counter += 1
 
 
-def delete_path(share, relative: str) -> None:
-    target = _resolve(share, relative)
-    if target == _resolve(share, ""):
-        raise StorageError("Cannot delete the share root")
+def delete_path(root: Path, relative: str) -> None:
+    target = _resolve(root, relative)
+    if target == root.resolve():
+        raise StorageError("Cannot delete the root folder")
     if not target.exists():
         raise StorageError("Path does not exist")
     if target.is_dir():
@@ -150,8 +155,8 @@ def delete_path(share, relative: str) -> None:
         target.unlink()
 
 
-def stream_folder_zip(share, relative: str):
-    target = _resolve(share, relative)
+def stream_folder_zip(root: Path, relative: str):
+    target = _resolve(root, relative)
     if not target.exists():
         raise StorageError("Path does not exist")
 

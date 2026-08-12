@@ -10,7 +10,7 @@ from werkzeug.security import check_password_hash
 from . import db
 from .branding import public_context
 from .storage import (
-    StorageError, delete_path, list_dir, share_exists, stream_folder_zip,
+    StorageError, delete_path, list_dir, share_root, stream_folder_zip,
     upload_file,
 )
 
@@ -64,7 +64,7 @@ def share(token):
             **public_context(share),
         )
 
-    if not share_exists(share):
+    if not share_root(share).exists():
         return render_template(
             "share_empty.html",
             share=share,
@@ -74,7 +74,7 @@ def share(token):
 
     relative = request.args.get("path", "")
     try:
-        entries, current_rel, target = list_dir(share, relative)
+        entries, current_rel, target = list_dir(share_root(share), relative)
     except StorageError as exc:
         return render_template(
             "share_empty.html",
@@ -112,7 +112,7 @@ def download(token):
     from .storage import _resolve
 
     try:
-        target = _resolve(share, relative)
+        target = _resolve(share_root(share), relative)
     except StorageError:
         abort(404)
     if not target.is_file():
@@ -136,7 +136,7 @@ def download_zip(token):
 
     relative = request.args.get("path", "")
     try:
-        buf, name = stream_folder_zip(share, relative)
+        buf, name = stream_folder_zip(share_root(share), relative)
     except StorageError:
         abort(404)
     db.touch_share(share["id"])
@@ -162,11 +162,13 @@ def upload(token):
         abort(400)
     try:
         saved = upload_file(
-            share,
+            share_root(share),
             relative,
             file.filename,
             file.stream,
             request.content_length or 0,
+            share["max_upload_size_mb"],
+            share["allowed_extensions"],
         )
     except StorageError as exc:
         flash(str(exc), "error")
@@ -186,7 +188,7 @@ def delete(token):
     relative = request.form.get("path", "")
     parent = "/".join(relative.split("/")[:-1])
     try:
-        delete_path(share, relative)
+        delete_path(share_root(share), relative)
     except StorageError as exc:
         flash(str(exc), "error")
         return redirect(url_for("public.share", token=token, path=parent))

@@ -1,0 +1,38 @@
+{% extends "admin_base.html" %}
+{% block title %}{{ 'Edit' if user else 'New' }} user{% endblock %}
+{% block content %}
+<div class="page-head"><h1>{{ 'Edit user' if user else 'New user' }}</h1></div>
+
+<form method="post"
+      action="{{ url_for('admin.user_update', user_id=user.id) if user else url_for('admin.user_create') }}"
+      class="form-grid">
+
+  <label>Username
+    <input type="text" name="username" value="{{ user.username if user else '' }}" placeholder="e.g. jane@client.com" required>
+  </label>
+
+  <label>Password
+    <input type="password" name="password" value="" placeholder="{{ 'leave blank to keep current' if user else 'required' }}" autocomplete="off">
+  </label>
+
+  <div class="check-row">
+    <label class="check"><input type="checkbox" name="enabled" {{ 'checked' if not user or user.enabled }}> Enabled</label>
+    <label class="check"><input type="checkbox" name="allow_download" {{ 'checked' if not user or user.allow_download }}> Allow download</label>
+    <label class="check"><input type="checkbox" name="allow_upload" {{ 'checked' if user and user.allow_upload }}> Allow upload</label>
+    <label class="check"><input type="checkbox" name="allow_delete" {{ 'checked' if user and user.allow_delete }}> Allow delete</label>
+  </div>
+
+  <label>Max upload size (MB)
+    <input type="number" name="max_upload_size_mb" min="1" value="{{ user.max_upload_size_mb if user else 100 }}">
+  </label>
+
+  <label>Allowed extensions <span class="muted">(comma-separated, blank = any)</span>
+    <input type="text" name="allowed_extensions" value="{{ user.allowed_extensions if user and user.allowed_extensions else '' }}" placeholder="pdf, zip, jpg">
+  </label>
+
+  <div class="form-actions">
+    <button type="submit" class="btn primary">{{ 'Save changes' if user else 'Create user' }}</button>
+    <a class="btn" href="{{ url_for('admin.users') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

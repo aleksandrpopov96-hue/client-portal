@@ -42,6 +42,23 @@ def login_required(view):
     return wrapped
 
 
+def user_login_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        from . import db
+
+        user_id = session.get("user_id")
+        if not user_id:
+            return redirect(url_for("browser.login", next=request_path()))
+        user = db.get_user(user_id)
+        if not user or not user["enabled"]:
+            session.pop("user_id", None)
+            return redirect(url_for("browser.login", next=request_path()))
+        return view(*args, **kwargs)
+
+    return wrapped
+
+
 def request_path():
     from flask import request
 

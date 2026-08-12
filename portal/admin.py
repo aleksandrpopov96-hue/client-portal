@@ -210,3 +210,111 @@ def logo_upload():
 @admin_bp.route("/brand/<path:filename>")
 def brand_file(filename):
     return send_from_directory(current_app.config["UPLOADS_DIR"], filename)
+
+
+def _parse_user_form():
+    username = request.form.get("username", "").strip()
+    password = request.form.get("password", "")
+    password_hash = generate_password_hash(password, method="pbkdf2") if password else None
+    exts = ",".join(
+        e.strip().lower().lstrip(".")
+        for e in request.form.get("allowed_extensions", "").split(",")
+        if e.strip()
+    )
+    return {
+        "username": username,
+        "password_hash": password_hash,
+        "enabled": _bool(request.form.get("enabled")),
+        "allow_download": _bool(request.form.get("allow_download")),
+        "allow_upload": _bool(request.form.get("allow_upload")),
+        "allow_delete": _bool(request.form.get("allow_delete")),
+        "max_upload_size_mb": int(request.form.get("max_upload_size_mb") or 100),
+        "allowed_extensions": exts or None,
+    }
+
+
+@admin_bp.route("/admin/users")
+@login_required
+def users():
+    return render_template("admin_users.html", users=db.list_users())
+
+
+@admin_bp.route("/admin/users/new")
+@login_required
+def user_new():
+    return render_template("admin_user_form.html", user=None)
+
+
+@admin_bp.route("/admin/users/<int:user_id>/edit")
+@login_required
+def user_edit(user_id):
+    user = db.get_user(user_id)
+    if user is None:
+        flash("User not found", "error")
+        return redirect(url_for("admin.users"))
+    return render_template("admin_user_form.html", user=user)
+
+
+@admin_bp.route("/admin/users", methods=["POST"])
+@login_required
+def user_create():
+    data = _parse_user_form()
+    if not data["username"]:
+        flash("Username is required", "error")
+        return redirect(url_for("admin.user_new"))
+    if not data["password_hash"]:
+        flash("A password is required when creating a user", "error")
+        return redirect(url_for("admin.user_new"))
+    if db.get_user_by_username(data["username"]):
+        flash("That username is already taken", "error")
+        return redirect(url_for("admin.user_new"))
+    db.create_user(
+        username=data["username"],
+        password_hash=data["password_hash"],
+        enabled=data["enabled"],
+        allow_download=data["allow_download"],
+        allow_upload=data["allow_upload"],
+        allow_delete=data["allow_delete"],
+        max_upload_size_mb=data["max_upload_size_mb"],
+        allowed_extensions=data["allowed_extensions"],
+    )
+    flash(f"User {data['username']} created", "success")
+    return redirect(url_for("admin.users"))
+
+
+@admin_bp.route("/admin/users/<int:user_id>", methods=["POST"])
+@login_required
+def user_update(user_id):
+    user = db.get_user(user_id)
+    if user is None:
+        flash("User not found", "error")
+        return redirect(url_for("admin.users"))
+    data = _parse_user_form()
+    if not data["username"]:
+        flash("Username is required", "error")
+        return redirect(url_for("admin.user_edit", user_id=user_id))
+    existing = db.get_user_by_username(data["username"])
+    if existing and existing["id"] != user_id:
+        flash("That username is already taken", "error")
+        return redirect(url_for("admin.user_edit", user_id=user_id))
+    db.update_user(
+        user_id=user_id,
+        username=data["username"],
+        password_hash=data["password_hash"],
+        enabled=data["enabled"],
+        allow_download=data["allow_download"],
+        allow_upload=data["allow_upload"],
+        allow_delete=data["allow_delete"],
+        max_upload_size_mb=data["max_upload_size_mb"],
+        allowed_extensions=data["allowed_extensions"],
+    )
+    flash("User updated", "success")
+    return redirect(url_for("admin.users"))
+
+
+@admin_bp.route("/admin/users/<int:user_id>/delete", methods=["POST"])
+@login_required
+def user_delete(user_id):
+    db.delete_user(user_id)
+    flash("User deleted", "success")
+    return redirect(url_for("admin.users"))

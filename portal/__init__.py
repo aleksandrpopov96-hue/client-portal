@@ -5,6 +5,7 @@ from flask import Flask, render_template
 from . import db
 from .config import get_config, get_or_create_secret_key
 from .admin import admin_bp
+from .browser import browser_bp
 from .public import public_bp
 
 
@@ -27,6 +28,7 @@ def create_app():
     template_filters.init_app(app)
 
     app.register_blueprint(admin_bp)
+    app.register_blueprint(browser_bp)
     app.register_blueprint(public_bp)
 
     @app.context_processor
