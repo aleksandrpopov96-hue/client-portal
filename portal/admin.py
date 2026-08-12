@@ -57,7 +57,7 @@ def _parse_share_form():
 
 @admin_bp.route("/admin/login", methods=["GET", "POST"])
 def login():
-    ensure_admin_bootstrapped()
+    ensure_admin_bootstrapped(current_app.config["ADMIN_PASSWORD"])
     if request.method == "POST":
         username = request.form.get("username", "")
         password = request.form.get("password", "")

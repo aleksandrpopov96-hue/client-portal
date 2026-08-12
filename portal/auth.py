@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from functools import wraps
 
 from flask import redirect, session, url_for
@@ -19,16 +21,18 @@ def verify_admin_password(password: str) -> bool:
     return check_password_hash(stored, password)
 
 
-def ensure_admin_bootstrapped() -> None:
-    from . import db
-    from flask import current_app
+def ensure_admin_bootstrapped(configured_password: str | None = None) -> None:
+    """Make PORTAL_ADMIN_PASSWORD the source of truth for the admin login.
 
-    if db.get_setting("admin_password_hash"):
-        return
-    default = current_app.config["ADMIN_PASSWORD"]
-    if default:
-        set_admin_password(default)
-    else:
+    If the env var is set (and not the placeholder), always apply it so that
+    changing .env takes effect on redeploy. Only fall back to 'admin' when
+    nothing is configured.
+    """
+    from . import db
+
+    if configured_password and configured_password != "CHANGE_ME":
+        set_admin_password(configured_password)
+    elif not db.get_setting("admin_password_hash"):
         set_admin_password("admin")
 
 

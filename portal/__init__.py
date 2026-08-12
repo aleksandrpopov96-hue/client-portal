@@ -23,6 +23,10 @@ def create_app():
 
     db.init_db(cfg["DB_PATH"])
 
+    from .auth import ensure_admin_bootstrapped
+
+    ensure_admin_bootstrapped(cfg["ADMIN_PASSWORD"])
+
     from . import template_filters
 
     template_filters.init_app(app)
