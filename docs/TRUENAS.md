@@ -137,6 +137,33 @@ minutes. Subsequent runs are fast.
 Local-only access needs the `ports:` line in `docker-compose.yml` uncommented
 (it is commented by default because the intended route is the tunnel).
 
+### Browsing the whole NAS
+
+The portal browses whatever is mounted as its storage root (`/data/files`).
+Point that at the entire TrueNAS filesystem to see every pool and dataset:
+
+1. In `.env` set:
+   ```
+   PORTAL_FILES_PATH=/mnt
+   ```
+2. The container must be able to READ the (root-owned) datasets, one of:
+   - **Simplest:** run the portal as root — uncomment `user: "0:0"` in
+     `docker-compose.yml`.
+   - **Safer:** keep the non-root `PUID/PGID` and give that user read ACLs on
+     the datasets you want visible (Storage → Edit Permissions → Add ACL entry
+     for the apps user, read).
+3. `docker compose up -d`.
+4. Create a **user** with folder scope `/` (and only the rights you want:
+   download, upload, delete) and sign in at `/login` — the top level lists
+   every pool; drill down into any dataset.
+
+> ⚠️ **Warning.** With scope `/`, a user's called rights (upload/delete) apply
+> **everywhere**. If the container runs as root, that includes the whole NAS.
+> Set `allow_upload`/`allow_delete` off unless explicitly needed, scope each
+> user to the folders they actually need, and never leave admin passwords
+> weak. Read-only viewing is safe; full-root write/delete is not something to
+> expose casually.
+
 ---
 
 ## 8. Expose via a Cloudflare tunnel

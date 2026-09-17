@@ -38,11 +38,11 @@ fi
 PUID="${PUID:-3000}"
 PGID="${PGID:-3000}"
 
-# Sanity-check the files path exists (it is your SMB dataset).
+# Sanity-check the files path exists (your storage root - /mnt to browse the whole NAS).
 if [ ! -d "$PORTAL_FILES_PATH" ]; then
   echo "ERROR: PORTAL_FILES_PATH '$PORTAL_FILES_PATH' does not exist."
-  echo "Create the dataset in TrueNAS (Storage -> Create Dataset) and set its"
-  echo "ownership to uid:gid $PUID:$PGID, then run this script again."
+  echo "It must be a mounted path on this host - e.g. /mnt (whole NAS) or a dataset"
+  echo "such as /mnt/NormalusNAS/SUBKINAS. Fix .env, then run this script again."
   exit 1
 fi
 

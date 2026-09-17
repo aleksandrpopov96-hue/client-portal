@@ -15,6 +15,16 @@ services:
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
+    # To browse EVERYTHING on the NAS (every pool/dataset), also set
+    #   PORTAL_FILES_PATH=/mnt
+    # in .env and uncomment the line below so the portal runs as root and can
+    # read the root-owned TrueNAS datasets:
+    #
+    # WARNING: as root the portal (and any user you give upload/delete rights
+    # with folder scope "/") can read AND write/delete anywhere on the NAS.
+    # Prefer folder scoping + dataset ACLs when you don't need full vision.
+    #
+    # user: "0:0"
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8080/api/branding"]
       interval: 30s
@@ -32,10 +42,11 @@ services:
       PORTAL_ADMIN_PASSWORD: ${PORTAL_ADMIN_PASSWORD:-CHANGE_ME}
       PORTAL_TRUST_PROXY: "true"
     volumes:
-      # >>> The SMB dataset the portal serves: point this at the TrueNAS
-      # dataset that is (or will become) your SMB share, e.g.
-      #   PORTAL_FILES_PATH=/mnt/tank/clients
-      - "${PORTAL_FILES_PATH:-/mnt/tank/clients}:/data/files:rw"
+      # >>> The files the portal browses. Point at the WHOLE filesystem to see
+      # every pool/dataset on the NAS, or at one dataset to scope it down:
+      #   PORTAL_FILES_PATH=/mnt                       (whole NAS)
+      #   PORTAL_FILES_PATH=/mnt/NormalusNAS/SUBKINAS  (just an SMB dataset)
+      - "${PORTAL_FILES_PATH:-/mnt}:/data/files:rw"
       # Small folder for the portal database, logo and secret key.
       - "${PORTAL_DATA_PATH:-/mnt/tank/portal-data}:/data/portal:rw"
 
