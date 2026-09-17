@@ -21,11 +21,11 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
-    # For local-only access (no tunnel) expose a host port.
-    # When using the cloudflared tunnel service below, comment this out
-    # and use the `network_mode: service:client-portal` on the tunnel.
-    # ports:
-    #   - "${PORTAL_PORT:-8080}:8080"
+    # Local access on the LAN. When you later add the cloudflared tunnel service
+    # you can remove this block (the tunnel reaches the portal on localhost:8080
+    # without needing a published port).
+    ports:
+      - "${PORTAL_PORT:-8080}:8080"
     environment:
       PORTAL_STORAGE_ROOT: /data/files
       PORTAL_DATA_DIR: /data/portal
