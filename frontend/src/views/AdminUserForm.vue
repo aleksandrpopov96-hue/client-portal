@@ -33,6 +33,7 @@
         </v-row>
         <v-row align="center">
           <v-col cols="12" md="4"><v-switch v-model="form.allow_delete" label="Can delete" /></v-col>
+          <v-col cols="12" md="4"><v-switch v-model="form.allow_share" label="Can create public links" /></v-col>
           <v-col cols="12" md="4">
             <v-text-field v-model="form.max_upload_size_mb" label="Max upload (MB)" type="number" min="1" />
           </v-col>
@@ -82,6 +83,7 @@ function blank() {
     allow_download: true,
     allow_upload: false,
     allow_delete: false,
+    allow_share: false,
     max_upload_size_mb: 100,
     allowed_extensions: '',
     subfolder: '/',
@@ -101,6 +103,7 @@ onMounted(async () => {
       allow_download: user.allow_download,
       allow_upload: user.allow_upload,
       allow_delete: user.allow_delete,
+      allow_share: user.allow_share,
       max_upload_size_mb: user.max_upload_size_mb,
       allowed_extensions: user.allowed_extensions || '',
       subfolder: user.subfolder,
@@ -120,6 +123,7 @@ async function save() {
     allow_download: form.value.allow_download,
     allow_upload: form.value.allow_upload,
     allow_delete: form.value.allow_delete,
+    allow_share: form.value.allow_share,
     max_upload_size_mb: Number(form.value.max_upload_size_mb) || 1,
     allowed_extensions: form.value.allowed_extensions,
     subfolder: form.value.subfolder,

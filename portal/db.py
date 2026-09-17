@@ -51,6 +51,7 @@ def init_db(db_path: str) -> None:
                 allow_download INTEGER NOT NULL DEFAULT 1,
                 allow_upload INTEGER NOT NULL DEFAULT 0,
                 allow_delete INTEGER NOT NULL DEFAULT 0,
+                allow_share INTEGER NOT NULL DEFAULT 0,
                 max_upload_size_mb INTEGER NOT NULL DEFAULT 100,
                 allowed_extensions TEXT,
                 created_at TEXT NOT NULL,
@@ -85,6 +86,8 @@ def _migrate(conn) -> None:
         conn.execute("ALTER TABLE users ADD COLUMN subfolder TEXT NOT NULL DEFAULT '/'")
     if "note" not in cols:
         conn.execute("ALTER TABLE users ADD COLUMN note TEXT")
+    if "allow_share" not in cols:
+        conn.execute("ALTER TABLE users ADD COLUMN allow_share INTEGER NOT NULL DEFAULT 0")
     cols = {row["name"] for row in conn.execute("PRAGMA table_info(shares)")}
     if "note" not in cols:
         conn.execute("ALTER TABLE shares ADD COLUMN note TEXT")
@@ -230,6 +233,7 @@ def create_user(
     allow_download: bool,
     allow_upload: bool,
     allow_delete: bool,
+    allow_share: bool,
     max_upload_size_mb: int,
     allowed_extensions: str | None,
     subfolder: str,
@@ -239,11 +243,11 @@ def create_user(
     with _lock, get_conn() as conn:
         cur = conn.execute(
             "INSERT INTO users (username, password_hash, enabled, allow_download, "
-            "allow_upload, allow_delete, max_upload_size_mb, allowed_extensions, "
-            "subfolder, note, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            "allow_upload, allow_delete, allow_share, max_upload_size_mb, allowed_extensions, "
+            "subfolder, note, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (
                 username, password_hash, int(enabled), int(allow_download),
-                int(allow_upload), int(allow_delete), max_upload_size_mb,
+                int(allow_upload), int(allow_delete), int(allow_share), max_upload_size_mb,
                 allowed_extensions, subfolder, note, now, now,
             ),
         )
@@ -258,6 +262,7 @@ def update_user(
     allow_download: bool,
     allow_upload: bool,
     allow_delete: bool,
+    allow_share: bool,
     max_upload_size_mb: int,
     allowed_extensions: str | None,
     subfolder: str,
@@ -269,22 +274,22 @@ def update_user(
             conn.execute(
                 "UPDATE users SET username=?, password_hash=?, enabled=?, "
                 "allow_download=?, allow_upload=?, allow_delete=?, "
-                "max_upload_size_mb=?, allowed_extensions=?, subfolder=?, note=?, "
+                "allow_share=?, max_upload_size_mb=?, allowed_extensions=?, subfolder=?, note=?, "
                 "updated_at=? WHERE id=?",
                 (
                     username, password_hash, int(enabled), int(allow_download),
-                    int(allow_upload), int(allow_delete), max_upload_size_mb,
+                    int(allow_upload), int(allow_delete), int(allow_share), max_upload_size_mb,
                     allowed_extensions, subfolder, note, now, user_id,
                 ),
             )
         else:
             conn.execute(
                 "UPDATE users SET username=?, enabled=?, allow_download=?, "
-                "allow_upload=?, allow_delete=?, max_upload_size_mb=?, "
+                "allow_upload=?, allow_delete=?, allow_share=?, max_upload_size_mb=?, "
                 "allowed_extensions=?, subfolder=?, note=?, updated_at=? WHERE id=?",
                 (
                     username, int(enabled), int(allow_download), int(allow_upload),
-                    int(allow_delete), max_upload_size_mb, allowed_extensions,
+                    int(allow_delete), int(allow_share), max_upload_size_mb, allowed_extensions,
                     subfolder, note, now, user_id,
                 ),
             )

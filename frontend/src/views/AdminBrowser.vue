@@ -7,6 +7,9 @@
     <v-alert v-if="error" type="error" variant="tonal" closable dense class="mb-3" @update:model-value="error = ''">
       {{ error }}
     </v-alert>
+    <v-alert v-if="message" type="success" variant="tonal" closable dense class="mb-3" @update:model-value="message = ''">
+      {{ message }}
+    </v-alert>
 
     <v-card class="rounded-xl elevation-1">
       <v-toolbar density="comfortable" color="surface">
@@ -46,10 +49,12 @@
           downloadable
           deletable
           :thumbnail-endpoint="thumbnailEndpoint"
+          shareable
           @open="onOpen"
           @download="onDownload"
           @preview="onPreview"
           @delete="onDelete"
+          @share="onShare"
         />
         <v-empty-state v-else icon="mdi-folder-open-outline" title="This folder is empty" text="Upload files to get started." class="rounded-xl" />
       </v-card-text>
@@ -101,6 +106,7 @@ const entries = ref([])
 const currentPath = ref('')
 const loading = ref(false)
 const error = ref('')
+const message = ref('')
 const showUpload = ref(false)
 const dirDialog = ref(false)
 const dirName = ref('')
@@ -180,6 +186,18 @@ async function onDelete(entry) {
   }
 }
 
+async function onShare(entry) {
+  try {
+    const res = await apiJSON('POST', '/api/admin/browser/share', {
+      body: { path: entry.relative, name: entry.name },
+    })
+    await copyText(res.url)
+    message.value = `Public link copied: ${res.url}`
+  } catch (e) {
+    error.value = e.error || 'Could not create share link'
+  }
+}
+
 function zipFolder() {
   window.location.href = `/api/admin/browser/zip?path=${encodeURIComponent(currentPath.value)}`
 }
@@ -208,4 +226,10 @@ async function createDir() {
 }
 
 onMounted(load)
+
+async function copyText(text) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text)
+  }
+}
 </script>

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import mimetypes
+import secrets
 from pathlib import Path
 
 from flask import Blueprint, Response, current_app, jsonify, request, send_file
 
+from .. import db
 from ..storage import (
     StorageError, build_folder_zip, cleanup_later, delete_path, list_dir, mkdir,
     preview_kind, preview_mimetype, upload_chunk, upload_file, _resolve,
@@ -190,8 +192,51 @@ def delete_route():
     return jsonify({"ok": True})
 
 
+@browser_admin_bp.post("/admin/browser/share")
+def share_route():
+    if req := require_admin():
+        return req
+    data = request.get_json(silent=True) or {}
+    relative = data.get("path") or ""
+    try:
+        target = _resolve(_root(), relative)
+    except StorageError:
+        return json_error("Path does not exist", 404)
+    if not target.exists():
+        return json_error("Path does not exist", 404)
+
+    share_id = db.create_share(
+        token=secrets.token_urlsafe(9),
+        name=str(data.get("name") or target.name or "Storage root").strip(),
+        subfolder=_subfolder_for(target),
+        enabled=True,
+        password_hash=None,
+        expires_at=None,
+        mode="browse",
+        allow_download=True,
+        allow_upload=False,
+        allow_delete=False,
+        allowed_extensions=None,
+        max_upload_size_mb=100,
+        branding_color=None,
+        note="Created from admin file browser",
+    )
+    share = db.get_share(share_id)
+    audit("admin:browser:share", share["subfolder"], actor="admin")
+    base = request.url_root.rstrip("/")
+    return jsonify({"token": share["token"], "url": f"{base}/s/{share['token']}", "share": {"id": share["id"], "name": share["name"], "subfolder": share["subfolder"]}}), 201
+
+
 def _int_form(key: str) -> int:
     try:
         return int(request.form.get(key, 0) or 0)
     except (TypeError, ValueError):
         return 0
+
+
+def _subfolder_for(target: Path) -> str:
+    root = _root()
+    rel = target.resolve().relative_to(root)
+    if rel == Path("."):
+        return "/"
+    return "/" + rel.as_posix()

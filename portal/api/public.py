@@ -68,7 +68,12 @@ def share_meta(token):
         return jsonify(payload)
     payload = _public_share_payload(share)
     payload["locked"] = False
-    payload["root_exists"] = share_root(share).exists()
+    root = share_root(share)
+    payload["root_exists"] = root.exists()
+    payload["root_is_file"] = root.is_file()
+    payload["filename"] = root.name if root.is_file() else None
+    payload["size"] = root.stat().st_size if root.is_file() else None
+    payload["mtime"] = root.stat().st_mtime if root.exists() else None
     return jsonify(payload)
 
 
@@ -99,6 +104,8 @@ def share_ls(token):
     if not _unlocked(share):
         return json_error("Share is password protected", 401)
     root = share_root(share)
+    if root.is_file():
+        return json_error("This share points to a single file", 400)
     db.touch_share(share["id"])
     relative = request.args.get("path", "")
     try:
@@ -120,8 +127,14 @@ def share_download(token):
     relative = request.args.get("path", "")
     from ..storage import _resolve
 
+    root = share_root(share)
     try:
-        target = _resolve(share_root(share), relative)
+        if root.is_file():
+            if relative not in ("", "/"):
+                return json_error("Path does not exist", 404)
+            target = root
+        else:
+            target = _resolve(root, relative)
     except StorageError:
         return json_error("Path does not exist", 404)
     if not target.is_file():
@@ -152,8 +165,14 @@ def share_preview(token):
     relative = request.args.get("path", "")
     from ..storage import _resolve
 
+    root = share_root(share)
     try:
-        target = _resolve(share_root(share), relative)
+        if root.is_file():
+            if relative not in ("", "/"):
+                return json_error("Path does not exist", 404)
+            target = root
+        else:
+            target = _resolve(root, relative)
     except StorageError:
         return json_error("Path does not exist", 404)
     if not target.is_file():
@@ -189,7 +208,8 @@ def share_thumbnail(token):
         return json_error("Browsing is disabled for this share", 403)
     relative = request.args.get("path", "")
     try:
-        data, mime = thumbnail(share_root(share), relative)
+        root = share_root(share)
+        data, mime = thumbnail(root, "" if root.is_file() else relative)
     except StorageError as exc:
         return json_error(str(exc), 404)
     if isinstance(data, Path):
@@ -210,6 +230,8 @@ def share_zip(token):
     from ..storage import build_folder_zip
 
     with transfer_guard().transfer(get_client_ip()):
+        if share_root(share).is_file():
+            return json_error("Can only zip folders", 400)
         try:
             buf, name = build_folder_zip(share_root(share), relative)
         except StorageError as exc:

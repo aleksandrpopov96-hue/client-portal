@@ -73,10 +73,10 @@
           </v-breadcrumbs>
 
           <template #extension>
-            <v-btn v-if="share.allow_download" variant="tonal" prepend-icon="mdi-folder-zip-outline" size="small" class="ml-2 mb-2" @click="zipFolder">
+            <v-btn v-if="share.allow_download && !share.root_is_file" variant="tonal" prepend-icon="mdi-folder-zip-outline" size="small" class="ml-2 mb-2" @click="zipFolder">
               Zip folder
             </v-btn>
-            <v-btn v-if="share.allow_upload && share.mode === 'both'" variant="tonal" :prepend-icon="showUpload ? 'mdi-close' : 'mdi-upload'" size="small" class="ml-2 mb-2" @click="showUpload = !showUpload">
+            <v-btn v-if="share.allow_upload && share.mode === 'both' && !share.root_is_file" variant="tonal" :prepend-icon="showUpload ? 'mdi-close' : 'mdi-upload'" size="small" class="ml-2 mb-2" @click="showUpload = !showUpload">
               {{ showUpload ? 'Close upload' : 'Upload files' }}
             </v-btn>
           </template>
@@ -220,6 +220,17 @@ async function unlock() {
 async function load() {
   browseLoading.value = true
   try {
+    if (share.value?.root_is_file) {
+      entries.value = [{
+        name: share.value.filename,
+        is_dir: false,
+        size: share.value.size,
+        mtime: share.value.mtime,
+        relative: '',
+      }]
+      errorMsg.value = ''
+      return
+    }
     const data = await apiJSON('GET', `/api/s/${token.value}/ls?path=${encodeURIComponent(currentPath.value)}`)
     entries.value = data.entries
     errorMsg.value = ''
@@ -233,6 +244,7 @@ async function load() {
 }
 
 function navigate(path) {
+  if (share.value?.root_is_file) return
   currentPath.value = path || ''
   load()
 }

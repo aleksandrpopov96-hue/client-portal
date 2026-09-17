@@ -62,6 +62,11 @@
             />
           </template>
         </v-tooltip>
+        <v-tooltip v-if="shareable" location="top" text="Create public link">
+          <template #activator="{ props }">
+            <v-btn v-bind="props" variant="text" icon="mdi-share-variant-outline" size="small" color="primary" @click="$emit('share', row(item))" />
+          </template>
+        </v-tooltip>
       </div>
     </template>
 
@@ -79,9 +84,10 @@ defineProps({
   downloadable: { type: Boolean, default: true },
   deletable: { type: Boolean, default: false },
   thumbnailEndpoint: { type: Function, default: null },
+  shareable: { type: Boolean, default: false },
 })
 
-defineEmits(['open', 'download', 'preview', 'delete', 'zip'])
+defineEmits(['open', 'download', 'preview', 'delete', 'share', 'zip'])
 
 const headers = [
   { title: 'Name', key: 'name', sortable: true },

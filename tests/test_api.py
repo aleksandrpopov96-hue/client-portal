@@ -62,14 +62,14 @@ class PortalTest(unittest.TestCase):
 
     def test_user_login_and_session(self):
         db.create_user(
-            "alice", "pbkdf2:pbkdf2", True, True, True, False, 100, None, "/", None
+            "alice", "pbkdf2:pbkdf2", True, True, True, False, False, 100, None, "/", None
         )
         from werkzeug.security import generate_password_hash
 
         user = db.get_user_by_username("alice")
         db.update_user(
             user["id"], "alice", generate_password_hash("pw12345", "pbkdf2"),
-            True, True, True, False, 100, None, "/", None,
+            True, True, True, False, False, 100, None, "/", None,
         )
         r = self.client.post("/api/login", json={"username": "alice", "password": "pw12345"}, headers=self.headers())
         self.assertEqual(r.status_code, 200, r.json)
@@ -213,6 +213,19 @@ class PortalTest(unittest.TestCase):
         r = self.client.post("/api/admin/browser/delete", data={"path": "acme/up.bin"}, headers=self.headers())
         self.assertEqual(r.status_code, 200, r.json)
         self.assertFalse((self.storage / "acme" / "up.bin").exists())
+        # quick public link for a file
+        r = self.client.post(
+            "/api/admin/browser/share",
+            json={"path": "notes.txt", "name": "Notes public"},
+            headers=self.headers(),
+        )
+        self.assertEqual(r.status_code, 201, r.json)
+        token = r.json["token"]
+        meta = self.client.get(f"/api/s/{token}/meta")
+        self.assertTrue(meta.json["root_is_file"])
+        self.assertEqual(meta.json["filename"], "notes.txt")
+        download = self.client.get(f"/api/s/{token}/download")
+        self.assertEqual(download.data, b"hello world")
         # admin browser must require admin
         self.client.post("/api/admin/logout", headers=self.headers())
         self.assertEqual(self.client.get("/api/admin/browser/ls").status_code, 401)
@@ -260,7 +273,7 @@ class PortalTest(unittest.TestCase):
         from io import BytesIO
 
         user_id = db.create_user(
-            "bob", generate_password_hash("pw", "pbkdf2"), True, True, True, True, 50, "pdf,txt", "/", "test user"
+            "bob", generate_password_hash("pw", "pbkdf2"), True, True, True, True, True, 50, "pdf,txt", "/", "test user"
         )
         self.client.post("/api/login", json={"username": "bob", "password": "pw"}, headers=self.headers())
         self.assertEqual(self.client.get("/api/user/whoami").json["username"], "bob")
@@ -287,12 +300,17 @@ class PortalTest(unittest.TestCase):
         self.assertEqual(r.status_code, 200, r.json)
         self.assertTrue((self.storage / "report.txt").exists())
 
+        r = self.client.post("/api/user/share", json={"path": "notes.txt"}, headers=self.headers())
+        self.assertEqual(r.status_code, 201, r.json)
+        meta = self.client.get(f"/api/s/{r.json['token']}/meta")
+        self.assertTrue(meta.json["root_is_file"])
+
     def test_user_extension_whitelist(self):
         from werkzeug.security import generate_password_hash
         from io import BytesIO
 
         db.create_user(
-            "carol", generate_password_hash("pw", "pbkdf2"), True, True, True, True, 50, "pdf", "/", "test"
+            "carol", generate_password_hash("pw", "pbkdf2"), True, True, True, True, False, 50, "pdf", "/", "test"
         )
         self.client.post("/api/login", json={"username": "carol", "password": "pw"}, headers=self.headers())
         r = self.client.post(
@@ -307,7 +325,7 @@ class PortalTest(unittest.TestCase):
         from io import BytesIO
 
         db.create_user(
-            "dave", generate_password_hash("pw", "pbkdf2"), True, True, False, False, 50, None, "/", "test"
+            "dave", generate_password_hash("pw", "pbkdf2"), True, True, False, False, False, 50, None, "/", "test"
         )
         self.client.post("/api/login", json={"username": "dave", "password": "pw"}, headers=self.headers())
         r = self.client.post(

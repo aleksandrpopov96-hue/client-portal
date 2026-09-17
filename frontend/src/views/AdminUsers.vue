@@ -25,6 +25,7 @@
             <v-chip v-if="item.allow_download" size="x-small" color="info" variant="tonal">D</v-chip>
             <v-chip v-if="item.allow_upload" size="x-small" color="success" variant="tonal">U</v-chip>
             <v-chip v-if="item.allow_delete" size="x-small" color="warning" variant="tonal">X</v-chip>
+            <v-chip v-if="item.allow_share" size="x-small" color="primary" variant="tonal">S</v-chip>
           </div>
         </template>
 
