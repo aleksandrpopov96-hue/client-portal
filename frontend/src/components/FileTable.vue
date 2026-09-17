@@ -11,33 +11,33 @@
     <template #item.name="{ item }">
       <div
         class="d-flex align-center cursor-pointer py-1"
-        @click="$emit('open', item.raw)"
+        @click="$emit('open', row(item))"
       >
-        <v-icon :class="{ 'text-amber': item.raw.is_dir, 'text-blue-grey': !item.raw.is_dir }" class="mr-3">
-          {{ iconFor(item.raw.name, item.raw.is_dir) }}
+        <v-icon :class="{ 'text-amber': row(item).is_dir, 'text-blue-grey': !row(item).is_dir }" class="mr-3">
+          {{ iconFor(row(item).name, row(item).is_dir) }}
         </v-icon>
-        <span class="text-truncate" style="max-width: 320px">{{ item.raw.name }}</span>
+        <span class="text-truncate" style="max-width: 320px">{{ row(item).name }}</span>
       </div>
     </template>
 
     <template #item.size="{ item }">
-      <span class="text-body-2 text-medium-emphasis">{{ item.raw.is_dir ? '—' : humanSize(item.raw.size) }}</span>
+      <span class="text-body-2 text-medium-emphasis">{{ row(item).is_dir ? '—' : humanSize(row(item).size) }}</span>
     </template>
 
     <template #item.mtime="{ item }">
-      <span class="text-body-2 text-medium-emphasis">{{ fmtDate(item.raw.mtime * 1000) }}</span>
+      <span class="text-body-2 text-medium-emphasis">{{ fmtDate(row(item).mtime * 1000) }}</span>
     </template>
 
     <template #item.actions="{ item }">
       <div class="d-flex justify-end">
-        <v-tooltip v-if="previewEnabled && !item.raw.is_dir" location="top" text="Preview">
+        <v-tooltip v-if="previewEnabled && !row(item).is_dir" location="top" text="Preview">
           <template #activator="{ props }">
-            <v-btn v-bind="props" variant="text" icon="mdi-eye-outline" size="small" @click="$emit('preview', item.raw)" />
+            <v-btn v-bind="props" variant="text" icon="mdi-eye-outline" size="small" @click="$emit('preview', row(item))" />
           </template>
         </v-tooltip>
-        <v-tooltip v-if="downloadable && !item.raw.is_dir" location="top" text="Download">
+        <v-tooltip v-if="downloadable && !row(item).is_dir" location="top" text="Download">
           <template #activator="{ props }">
-            <v-btn v-bind="props" variant="text" icon="mdi-download" size="small" @click="$emit('download', item.raw)" />
+            <v-btn v-bind="props" variant="text" icon="mdi-download" size="small" @click="$emit('download', row(item))" />
           </template>
         </v-tooltip>
         <v-tooltip v-if="deletable" location="top" text="Delete">
@@ -48,7 +48,7 @@
               icon="mdi-delete-outline"
               size="small"
               color="error"
-              @click="$emit('delete', item.raw)"
+              @click="$emit('delete', row(item))"
             />
           </template>
         </v-tooltip>
@@ -60,7 +60,6 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
 import { humanSize, fmtDate } from '../utils/format'
 import { iconFor } from '../utils/preview'
 
@@ -79,6 +78,10 @@ const headers = [
   { title: 'Modified', key: 'mtime', sortable: true, width: 180 },
   { title: '', key: 'actions', sortable: false, align: 'end' },
 ]
+
+function row(item) {
+  return item?.raw || item
+}
 </script>
 
 <style scoped>
