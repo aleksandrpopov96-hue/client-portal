@@ -61,6 +61,7 @@
             :preview-enabled="store.config.preview_enabled"
             :downloadable="user.allow_download"
             :deletable="user.allow_delete"
+            :thumbnail-endpoint="thumbnailEndpoint"
             @open="onOpen"
             @download="onDownload"
             @preview="onPreview"
@@ -154,6 +155,9 @@ function previewEndpoint(file) {
 }
 function downloadEndpoint(file) {
   return `/api/user/download?path=${encodeURIComponent(file.relative)}`
+}
+function thumbnailEndpoint(file) {
+  return `/api/user/thumbnail?path=${encodeURIComponent(file.relative)}`
 }
 
 function extList(raw) {

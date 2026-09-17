@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import mimetypes
 
-from flask import Blueprint, current_app, jsonify, request, send_file, session
+from pathlib import Path
+
+from flask import Blueprint, Response, current_app, jsonify, request, send_file, session
 
 from .. import db
 from ..storage import (
     StorageError, delete_path, list_dir, mkdir, preview_kind, preview_mimetype,
-    upload_chunk, upload_file, user_root, cleanup_later,
+    upload_chunk, upload_file, user_root, cleanup_later, thumbnail,
 )
 from ..ratelimit import transfer_guard
 from .helpers import get_client_ip, audit, json_error, require_user
@@ -115,6 +117,23 @@ def preview():
     )
     resp.headers["Accept-Ranges"] = "bytes"
     return resp
+
+
+@browser_bp.get("/user/thumbnail")
+def thumbnail_route():
+    user = require_user()
+    if isinstance(user, tuple):
+        return user
+    if not user["allow_download"]:
+        return json_error("Downloads are disabled for this account", 403)
+    relative = request.args.get("path", "")
+    try:
+        data, mime = thumbnail(user_root(user), relative)
+    except StorageError as exc:
+        return json_error(str(exc), 404)
+    if isinstance(data, Path):
+        return send_file(data, mimetype=mime, max_age=86400)
+    return Response(data, mimetype=mime, headers={"Cache-Control": "public, max-age=86400"})
 
 
 @browser_bp.get("/user/zip")

@@ -5,12 +5,16 @@ import re
 import shutil
 import tempfile
 import zipfile
+import hashlib
+import html
+import mimetypes
 from pathlib import Path
 from typing import Any
 
 from flask import current_app
 
 _INVALID_SEGMENTS = {".", "..", ""}
+_UNSAFE_INLINE_EXT = {"html", "htm", "svg", "xml", "xhtml"}
 
 
 class StorageError(Exception):
@@ -83,6 +87,7 @@ def list_dir(root: Path, relative: str):
                 "size": stat.st_size if item.is_file() else None,
                 "mtime": stat.st_mtime,
                 "relative": _rel(root, item),
+                "preview_kind": None if item.is_dir() else preview_kind(item.name),
             }
         )
     return entries, relative, target
@@ -225,54 +230,108 @@ def _unique_path(path: Path) -> Path:
         counter += 1
 
 
-# ---------------------------------------------------------------------------
-# Preview support
-# ---------------------------------------------------------------------------
-
-PREVIEW_IMAGE = {"png", "jpg", "jpeg", "gif", "webp", "avif", "bmp", "svg"}
-PREVIEW_VIDEO = {"mp4", "webm", "mov", "m4v", "ogv"}
-PREVIEW_AUDIO = {"mp3", "wav", "ogg", "oga", "m4a", "flac", "aac", "opus"}
-PREVIEW_TEXT = {"txt", "md", "markdown", "json", "csv", "log", "py", "js", "ts",
-                "html", "css", "sh", "yaml", "yml", "toml", "ini", "xml", "conf",
-                "sql", "java", "c", "cpp", "h", "go", "rs", "rb", "php", "svg"}
-PREVIEW_PDF = {"pdf"}
-
-# Extensions we refuse to render inline (XSS risk) even if technically previewable.
-_NO_INLINE = {"html", "htm", "svg", "xml"}
-
-
 def preview_kind(filename: str) -> str | None:
     ext = Path(filename).suffix.lower().lstrip(".")
-    if ext in PREVIEW_IMAGE:
+    if ext in _UNSAFE_INLINE_EXT:
+        return None
+    mime = mimetypes.guess_type(filename)[0] or ""
+    if mime.startswith("image/"):
         return "image"
-    if ext in PREVIEW_VIDEO:
+    if mime.startswith("video/"):
         return "video"
-    if ext in PREVIEW_AUDIO:
+    if mime.startswith("audio/"):
         return "audio"
-    if ext in PREVIEW_PDF:
+    if mime == "application/pdf" or ext == "pdf":
         return "pdf"
-    if ext in PREVIEW_TEXT:
+    if mime.startswith("text/"):
+        return "text"
+    if ext in {
+        "txt", "md", "markdown", "json", "csv", "log", "py", "js", "ts",
+        "css", "sh", "yaml", "yml", "toml", "ini", "conf", "sql", "java",
+        "c", "cpp", "h", "go", "rs", "rb", "php",
+    }:
         return "text"
     return None
 
 
 def preview_mimetype(filename: str) -> str:
-    ext = Path(filename).suffix.lower().lstrip(".")
-    if ext in PREVIEW_IMAGE | {"svg"}:
-        import mimetypes
-
-        return mimetypes.guess_type(filename)[0] or "application/octet-stream"
-    if ext in PREVIEW_VIDEO:
-        import mimetypes
-
-        return mimetypes.guess_type(filename)[0] or "video/mp4"
-    if ext in PREVIEW_AUDIO:
-        import mimetypes
-
-        return mimetypes.guess_type(filename)[0] or "audio/mpeg"
-    if ext in PREVIEW_PDF:
+    kind = preview_kind(filename)
+    if kind == "text":
+        return "text/plain; charset=utf-8"
+    if kind == "pdf":
         return "application/pdf"
-    return "text/plain; charset=utf-8"
+    return mimetypes.guess_type(filename)[0] or "application/octet-stream"
+
+
+def thumbnail(root: Path, relative: str) -> tuple[Path | bytes, str]:
+    target = _resolve(root, relative)
+    if not target.is_file():
+        raise StorageError("Can only thumbnail files")
+
+    kind = preview_kind(target.name) or _generic_kind(target.name)
+    if kind == "image":
+        cached = _cached_image_thumbnail(target)
+        if cached:
+            return cached, "image/webp"
+    return _placeholder_thumbnail(target.name, kind), "image/svg+xml; charset=utf-8"
+
+
+def _cached_image_thumbnail(target: Path) -> Path | None:
+    try:
+        from PIL import Image, ImageOps
+    except Exception:
+        return None
+
+    stat = target.stat()
+    key = hashlib.sha256(f"{target.resolve()}:{stat.st_size}:{stat.st_mtime_ns}".encode()).hexdigest()
+    thumb_dir = Path(current_app.config["DATA_DIR"]) / "thumbnails"
+    thumb_dir.mkdir(parents=True, exist_ok=True)
+    out = thumb_dir / f"{key}.webp"
+    if out.exists():
+        return out
+    try:
+        with Image.open(target) as img:
+            img = ImageOps.exif_transpose(img)
+            img.thumbnail((240, 180))
+            if img.mode not in ("RGB", "RGBA"):
+                img = img.convert("RGB")
+            img.save(out, "WEBP", quality=78, method=4)
+        return out
+    except Exception:
+        out.unlink(missing_ok=True)
+        return None
+
+
+def _generic_kind(filename: str) -> str:
+    mime = mimetypes.guess_type(filename)[0] or ""
+    if mime.startswith("video/"):
+        return "video"
+    if mime.startswith("audio/"):
+        return "audio"
+    if mime == "application/pdf":
+        return "pdf"
+    if mime.startswith("text/"):
+        return "text"
+    return "file"
+
+
+def _placeholder_thumbnail(filename: str, kind: str) -> bytes:
+    label = {
+        "video": "VIDEO", "audio": "AUDIO", "pdf": "PDF", "text": "TEXT",
+        "image": "IMAGE", "file": "FILE",
+    }.get(kind, "FILE")
+    color = {
+        "video": "#7c3aed", "audio": "#0891b2", "pdf": "#dc2626",
+        "text": "#475569", "image": "#16a34a", "file": "#64748b",
+    }.get(kind, "#64748b")
+    name = html.escape(filename[:28])
+    svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="240" height="180" viewBox="0 0 240 180">
+<rect width="240" height="180" rx="18" fill="#f8fafc"/>
+<rect x="18" y="18" width="204" height="144" rx="14" fill="{color}" opacity=".12"/>
+<text x="120" y="86" text-anchor="middle" font-family="Arial,sans-serif" font-size="26" font-weight="700" fill="{color}">{label}</text>
+<text x="120" y="118" text-anchor="middle" font-family="Arial,sans-serif" font-size="13" fill="#334155">{name}</text>
+</svg>'''
+    return svg.encode("utf-8")
 
 
 def mkdir(root: Path, relative: str, name: str) -> str:

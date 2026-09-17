@@ -3,11 +3,12 @@ from __future__ import annotations
 import mimetypes
 from pathlib import Path
 
-from flask import Blueprint, current_app, jsonify, request, send_file
+from flask import Blueprint, Response, current_app, jsonify, request, send_file
 
 from ..storage import (
     StorageError, build_folder_zip, cleanup_later, delete_path, list_dir, mkdir,
     preview_kind, preview_mimetype, upload_chunk, upload_file, _resolve,
+    thumbnail,
 )
 from ..ratelimit import transfer_guard
 from .helpers import audit, get_client_ip, json_error, require_admin
@@ -88,6 +89,20 @@ def preview():
     )
     resp.headers["Accept-Ranges"] = "bytes"
     return resp
+
+
+@browser_admin_bp.get("/admin/browser/thumbnail")
+def thumbnail_route():
+    if req := require_admin():
+        return req
+    relative = request.args.get("path", "")
+    try:
+        data, mime = thumbnail(_root(), relative)
+    except StorageError as exc:
+        return json_error(str(exc), 404)
+    if isinstance(data, Path):
+        return send_file(data, mimetype=mime, max_age=86400)
+    return Response(data, mimetype=mime, headers={"Cache-Control": "public, max-age=86400"})
 
 
 @browser_admin_bp.get("/admin/browser/zip")

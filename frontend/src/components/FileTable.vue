@@ -13,9 +13,19 @@
         class="d-flex align-center cursor-pointer py-1"
         @click="$emit('open', row(item))"
       >
-        <v-icon :class="{ 'text-amber': row(item).is_dir, 'text-blue-grey': !row(item).is_dir }" class="mr-3">
-          {{ iconFor(row(item).name, row(item).is_dir) }}
-        </v-icon>
+        <v-avatar rounded="lg" size="44" class="mr-3 bg-surface-variant">
+          <v-img v-if="thumbnailEndpoint && !row(item).is_dir" :src="thumbnailEndpoint(row(item))" cover>
+            <template #placeholder>
+              <v-icon color="blue-grey">{{ iconFor(row(item).name, false) }}</v-icon>
+            </template>
+            <template #error>
+              <v-icon color="blue-grey">{{ iconFor(row(item).name, false) }}</v-icon>
+            </template>
+          </v-img>
+          <v-icon v-else :class="{ 'text-amber': row(item).is_dir, 'text-blue-grey': !row(item).is_dir }">
+            {{ iconFor(row(item).name, row(item).is_dir) }}
+          </v-icon>
+        </v-avatar>
         <span class="text-truncate" style="max-width: 320px">{{ row(item).name }}</span>
       </div>
     </template>
@@ -68,6 +78,7 @@ defineProps({
   previewEnabled: { type: Boolean, default: true },
   downloadable: { type: Boolean, default: true },
   deletable: { type: Boolean, default: false },
+  thumbnailEndpoint: { type: Function, default: null },
 })
 
 defineEmits(['open', 'download', 'preview', 'delete', 'zip'])

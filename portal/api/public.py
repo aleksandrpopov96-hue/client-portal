@@ -2,14 +2,15 @@ from __future__ import annotations
 
 import mimetypes
 from datetime import datetime, timezone
+from pathlib import Path
 
-from flask import Blueprint, current_app, jsonify, request, send_file, session
+from flask import Blueprint, Response, current_app, jsonify, request, send_file, session
 from werkzeug.security import check_password_hash
 
 from .. import db
 from ..storage import (
     StorageError, delete_path, list_dir, preview_kind, preview_mimetype,
-    share_root, upload_chunk, upload_file, cleanup_later,
+    share_root, upload_chunk, upload_file, cleanup_later, thumbnail,
 )
 from ..ratelimit import transfer_guard
 from .helpers import get_client_ip, audit, json_error
@@ -173,6 +174,27 @@ def share_preview(token):
     )
     resp.headers["Accept-Ranges"] = "bytes"
     return resp
+
+
+@public_bp.get("/s/<token>/thumbnail")
+def share_thumbnail(token):
+    share, err = _load_share(token)
+    if share is None:
+        return json_error(err[0], err[1])
+    if not _unlocked(share):
+        return json_error("Share is password protected", 401)
+    if not share["allow_download"]:
+        return json_error("Downloads are disabled for this share", 403)
+    if share["mode"] == "upload":
+        return json_error("Browsing is disabled for this share", 403)
+    relative = request.args.get("path", "")
+    try:
+        data, mime = thumbnail(share_root(share), relative)
+    except StorageError as exc:
+        return json_error(str(exc), 404)
+    if isinstance(data, Path):
+        return send_file(data, mimetype=mime, max_age=86400)
+    return Response(data, mimetype=mime, headers={"Cache-Control": "public, max-age=86400"})
 
 
 @public_bp.get("/s/<token>/zip")

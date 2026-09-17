@@ -90,6 +90,7 @@
             :preview-enabled="store.config.preview_enabled"
             :downloadable="share.allow_download"
             :deletable="share.allow_delete"
+            :thumbnail-endpoint="thumbnailEndpoint"
             @open="onOpen"
             @download="onDownload"
             @preview="onPreview"
@@ -182,6 +183,9 @@ function previewEndpoint(file) {
 }
 function downloadEndpoint(file) {
   return `/api/s/${token.value}/download?path=${encodeURIComponent(file.relative)}`
+}
+function thumbnailEndpoint(file) {
+  return `/api/s/${token.value}/thumbnail?path=${encodeURIComponent(file.relative)}`
 }
 
 async function init() {

@@ -1,6 +1,6 @@
-const IMAGE = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'bmp', 'svg']
-const VIDEO = ['mp4', 'webm', 'mov', 'm4v', 'ogv']
-const AUDIO = ['mp3', 'wav', 'ogg', 'oga', 'm4a', 'flac', 'aac', 'opus']
+const IMAGE = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'bmp', 'tif', 'tiff', 'heic', 'heif', 'ico', 'jfif']
+const VIDEO = ['mp4', 'webm', 'mov', 'm4v', 'ogv', 'mkv', 'avi', 'ts', 'mts', 'm2ts', 'mpg', 'mpeg', '3gp', '3g2', 'flv', 'f4v', 'wmv', 'asf', 'vob']
+const AUDIO = ['mp3', 'wav', 'ogg', 'oga', 'm4a', 'flac', 'aac', 'opus', 'aiff', 'aif', 'alac', 'amr', 'mid', 'midi', 'weba', 'wma']
 const TEXT = [
   'txt', 'md', 'markdown', 'json', 'csv', 'log', 'py', 'js', 'ts', 'css',
   'sh', 'yaml', 'yml', 'toml', 'ini', 'xml', 'conf', 'sql', 'java', 'c',

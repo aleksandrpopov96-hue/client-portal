@@ -23,22 +23,22 @@
         </div>
 
         <div v-else-if="kind === 'image'" class="d-flex align-center justify-center fill-height">
-          <img :src="previewUrl" class="img-preview" loading="lazy" />
+          <img :src="previewUrl()" class="img-preview" loading="lazy" />
         </div>
 
         <div v-else-if="kind === 'video'" class="d-flex align-center justify-center fill-height">
-          <video :src="previewUrl" controls autoplay playsinline class="w-100 video-preview" />
+          <video :src="previewUrl()" controls autoplay playsinline class="w-100 video-preview" />
         </div>
 
         <div v-else-if="kind === 'audio'" class="d-flex flex-column align-center justify-center fill-height">
-          <audio :src="previewUrl" controls class="w-75" />
+          <audio :src="previewUrl()" controls class="w-75" />
         </div>
 
         <div v-else-if="kind === 'pdf'">
           <v-progress-circular v-if="pdfLoading" indeterminate color="primary" class="d-block mx-auto mt-8" />
           <iframe
             v-show="!pdfLoading"
-            :src="previewUrl"
+            :src="previewUrl()"
             class="pdf-frame"
             @load="pdfLoading = false"
           />
