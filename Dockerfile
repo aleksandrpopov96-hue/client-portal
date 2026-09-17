@@ -1,9 +1,10 @@
 # ---- Frontend build stage -------------------------------------------------
 FROM node:20-alpine AS frontend
-WORKDIR /build
+WORKDIR /build/frontend
 COPY frontend/package.json frontend/package-lock.json* ./
 RUN npm install --no-audit --no-fund
 COPY frontend/ .
+# vite.config.js outputs to ../static relative to this dir -> /build/static
 RUN npm run build
 
 # ---- Python runtime stage -------------------------------------------------

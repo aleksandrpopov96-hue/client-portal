@@ -59,7 +59,7 @@ fi
 
 echo
 echo "Building and starting containers (this takes a few minutes the first time)..."
-docker compose up -d --build || docker-compose up -d --build
+docker compose up -d --build
 
 # Verify the container can actually write into the served dataset (this is the
 # whole point of the PUID/PGID setup).
@@ -76,7 +76,7 @@ fi
 
 echo
 echo "--- container status ---"
-docker compose ps 2>/dev/null || docker-compose ps 2>/dev/null || true
+docker compose ps 2>/dev/null || true
 echo
 echo "Portal admin:  http://<this-nas-ip>:${PORTAL_PORT:-8080}/admin"
 if [ -n "${CLOUDFLARED_TOKEN:-}" ]; then
