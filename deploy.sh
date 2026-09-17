@@ -20,6 +20,19 @@ fi
 
 echo "Using configuration from .env:"
 set -a; source .env; set +a
+PORTAL_FILES_PATH="${PORTAL_FILES_PATH:-}"
+PORTAL_DATA_PATH="${PORTAL_DATA_PATH:-}"
+if [ -z "$PORTAL_FILES_PATH" ]; then
+  echo "ERROR: PORTAL_FILES_PATH is not set in .env."
+  grep -n "PORTAL_FILES_PATH" .env 2>/dev/null || true
+  echo "Make sure the line is present and NOT commented out, e.g.:"
+  echo "  PORTAL_FILES_PATH=/mnt"
+  exit 1
+fi
+if [ -z "$PORTAL_DATA_PATH" ]; then
+  echo "ERROR: PORTAL_DATA_PATH is not set in .env (e.g. PORTAL_DATA_PATH=/mnt/NormalusNAS/portal-data)."
+  exit 1
+fi
 echo "  files:   $PORTAL_FILES_PATH"
 echo "  data:    $PORTAL_DATA_PATH"
 echo "  uid:gid: ${PUID:-3000}:${PGID:-3000}"
