@@ -6,3 +6,9 @@ data/
 files/
 portal.db
 .git/
+frontend/node_modules/
+frontend/dist/
+frontend/bun.lockb
+README.md
+tests/
+deploy.sh

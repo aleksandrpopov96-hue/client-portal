@@ -3,10 +3,14 @@ from __future__ import annotations
 import os
 import sqlite3
 import threading
-from datetime import datetime
+from datetime import datetime, timezone
 
 _lock = threading.Lock()
 _DB_PATH = None
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 def init_db(db_path: str) -> None:
@@ -14,6 +18,7 @@ def init_db(db_path: str) -> None:
     _DB_PATH = db_path
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
     with _lock, sqlite3.connect(db_path) as conn:
+        conn.row_factory = sqlite3.Row
         conn.executescript(
             """
             CREATE TABLE IF NOT EXISTS settings (
@@ -52,12 +57,37 @@ def init_db(db_path: str) -> None:
                 updated_at TEXT NOT NULL,
                 last_login_at TEXT
             );
+            CREATE TABLE IF NOT EXISTS access_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                actor TEXT NOT NULL,
+                action TEXT NOT NULL,
+                path TEXT NOT NULL DEFAULT '',
+                ip TEXT,
+                bytes INTEGER,
+                created_at TEXT NOT NULL
+            );
             """
         )
+        _migrate(conn)
 
 
-def _now() -> str:
-    return datetime.utcnow().isoformat(timespec="seconds")
+def _migrate(conn) -> None:
+    cols = {row["name"] for row in conn.execute("PRAGMA table_info(shares)")}
+    if "mode" not in cols:
+        conn.execute(
+            "ALTER TABLE shares ADD COLUMN mode TEXT NOT NULL DEFAULT 'both'"
+        )
+        conn.execute(
+            "UPDATE shares SET mode='upload' WHERE allow_download=0 AND allow_upload=1"
+        )
+    cols = {row["name"] for row in conn.execute("PRAGMA table_info(users)")}
+    if "subfolder" not in cols:
+        conn.execute("ALTER TABLE users ADD COLUMN subfolder TEXT NOT NULL DEFAULT '/'")
+    if "note" not in cols:
+        conn.execute("ALTER TABLE users ADD COLUMN note TEXT")
+    cols = {row["name"] for row in conn.execute("PRAGMA table_info(shares)")}
+    if "note" not in cols:
+        conn.execute("ALTER TABLE shares ADD COLUMN note TEXT")
 
 
 def get_conn():
@@ -89,6 +119,11 @@ def all_settings() -> dict:
     return {row["key"]: row["value"] for row in rows}
 
 
+# ---------------------------------------------------------------------------
+# Shares
+# ---------------------------------------------------------------------------
+
+
 def create_share(
     token: str,
     name: str,
@@ -96,24 +131,27 @@ def create_share(
     enabled: bool,
     password_hash: str | None,
     expires_at: str | None,
+    mode: str,
     allow_download: bool,
     allow_upload: bool,
     allow_delete: bool,
     allowed_extensions: str | None,
     max_upload_size_mb: int,
     branding_color: str | None,
+    note: str | None,
 ) -> int:
     now = _now()
     with _lock, get_conn() as conn:
         cur = conn.execute(
             "INSERT INTO shares (token, name, subfolder, enabled, password_hash, "
-            "expires_at, allow_download, allow_upload, allow_delete, allowed_extensions, "
-            "max_upload_size_mb, branding_color, created_at, updated_at) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "expires_at, mode, allow_download, allow_upload, allow_delete, "
+            "allowed_extensions, max_upload_size_mb, branding_color, note, "
+            "created_at, updated_at) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (
                 token, name, subfolder, int(enabled), password_hash, expires_at,
-                int(allow_download), int(allow_upload), int(allow_delete),
-                allowed_extensions, max_upload_size_mb, branding_color, now, now,
+                mode, int(allow_download), int(allow_upload), int(allow_delete),
+                allowed_extensions, max_upload_size_mb, branding_color, note, now, now,
             ),
         )
         return cur.lastrowid
@@ -126,24 +164,27 @@ def update_share(
     enabled: bool,
     password_hash: str | None,
     expires_at: str | None,
+    mode: str,
     allow_download: bool,
     allow_upload: bool,
     allow_delete: bool,
     allowed_extensions: str | None,
     max_upload_size_mb: int,
     branding_color: str | None,
+    note: str | None,
 ) -> None:
     now = _now()
     with _lock, get_conn() as conn:
         conn.execute(
             "UPDATE shares SET name=?, subfolder=?, enabled=?, password_hash=?, "
-            "expires_at=?, allow_download=?, allow_upload=?, allow_delete=?, "
-            "allowed_extensions=?, max_upload_size_mb=?, branding_color=?, updated_at=? "
-            "WHERE id=?",
+            "expires_at=?, mode=?, allow_download=?, allow_upload=?, allow_delete=?, "
+            "allowed_extensions=?, max_upload_size_mb=?, branding_color=?, note=?, "
+            "updated_at=? WHERE id=?",
             (
-                name, subfolder, int(enabled), password_hash, expires_at,
+                name, subfolder, int(enabled), password_hash, expires_at, mode,
                 int(allow_download), int(allow_upload), int(allow_delete),
-                allowed_extensions, max_upload_size_mb, branding_color, now, share_id,
+                allowed_extensions, max_upload_size_mb, branding_color, note, now,
+                share_id,
             ),
         )
 
@@ -177,6 +218,11 @@ def touch_share(share_id: int) -> None:
         conn.execute("UPDATE shares SET last_used_at=? WHERE id=?", (now, share_id))
 
 
+# ---------------------------------------------------------------------------
+# Users
+# ---------------------------------------------------------------------------
+
+
 def create_user(
     username: str,
     password_hash: str,
@@ -186,17 +232,19 @@ def create_user(
     allow_delete: bool,
     max_upload_size_mb: int,
     allowed_extensions: str | None,
+    subfolder: str,
+    note: str | None,
 ) -> int:
     now = _now()
     with _lock, get_conn() as conn:
         cur = conn.execute(
             "INSERT INTO users (username, password_hash, enabled, allow_download, "
             "allow_upload, allow_delete, max_upload_size_mb, allowed_extensions, "
-            "created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+            "subfolder, note, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
             (
                 username, password_hash, int(enabled), int(allow_download),
                 int(allow_upload), int(allow_delete), max_upload_size_mb,
-                allowed_extensions, now, now,
+                allowed_extensions, subfolder, note, now, now,
             ),
         )
         return cur.lastrowid
@@ -212,6 +260,8 @@ def update_user(
     allow_delete: bool,
     max_upload_size_mb: int,
     allowed_extensions: str | None,
+    subfolder: str,
+    note: str | None,
 ) -> None:
     now = _now()
     with _lock, get_conn() as conn:
@@ -219,22 +269,23 @@ def update_user(
             conn.execute(
                 "UPDATE users SET username=?, password_hash=?, enabled=?, "
                 "allow_download=?, allow_upload=?, allow_delete=?, "
-                "max_upload_size_mb=?, allowed_extensions=?, updated_at=? WHERE id=?",
+                "max_upload_size_mb=?, allowed_extensions=?, subfolder=?, note=?, "
+                "updated_at=? WHERE id=?",
                 (
                     username, password_hash, int(enabled), int(allow_download),
                     int(allow_upload), int(allow_delete), max_upload_size_mb,
-                    allowed_extensions, now, user_id,
+                    allowed_extensions, subfolder, note, now, user_id,
                 ),
             )
         else:
             conn.execute(
                 "UPDATE users SET username=?, enabled=?, allow_download=?, "
                 "allow_upload=?, allow_delete=?, max_upload_size_mb=?, "
-                "allowed_extensions=?, updated_at=? WHERE id=?",
+                "allowed_extensions=?, subfolder=?, note=?, updated_at=? WHERE id=?",
                 (
                     username, int(enabled), int(allow_download), int(allow_upload),
-                    int(allow_delete), max_upload_size_mb, allowed_extensions, now,
-                    user_id,
+                    int(allow_delete), max_upload_size_mb, allowed_extensions,
+                    subfolder, note, now, user_id,
                 ),
             )
 
@@ -266,3 +317,39 @@ def touch_user_login(user_id: int) -> None:
     now = _now()
     with _lock, get_conn() as conn:
         conn.execute("UPDATE users SET last_login_at=? WHERE id=?", (now, user_id))
+
+
+# ---------------------------------------------------------------------------
+# Access log
+# ---------------------------------------------------------------------------
+
+
+def log_access(actor: str, action: str, path: str = "", ip: str | None = None, bytes: int | None = None) -> None:
+    now = _now()
+    with _lock, get_conn() as conn:
+        conn.execute(
+            "INSERT INTO access_log (actor, action, path, ip, bytes, created_at) "
+            "VALUES (?,?,?,?,?,?)",
+            (actor, action, path, ip, bytes, now),
+        )
+
+
+def list_access_log(limit: int = 200):
+    with _lock, get_conn() as conn:
+        rows = conn.execute(
+            "SELECT * FROM access_log ORDER BY id DESC LIMIT ?", (limit,)
+        ).fetchall()
+    return rows
+
+
+def stats_summary():
+    with _lock, get_conn() as conn:
+        actors = conn.execute(
+            "SELECT actor, COUNT(*) AS n, "
+            "SUM(CASE WHEN action LIKE 'download:%' THEN 1 ELSE 0 END) AS downloads, "
+            "SUM(CASE WHEN action LIKE 'upload:%' THEN 1 ELSE 0 END) AS uploads, "
+            "SUM(bytes) AS total_bytes "
+            "FROM access_log GROUP BY actor ORDER BY n DESC"
+        ).fetchall()
+        total_entries = conn.execute("SELECT COUNT(*) AS n FROM access_log").fetchone()["n"]
+    return {"actors": actors, "total_entries": total_entries}

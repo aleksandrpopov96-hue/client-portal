@@ -1,14 +1,58 @@
 services:
+  # ---------- File portal --------------------------------------------------
   client-portal:
-    build: .
+    build:
+      context: .
+      args:
+        # Numeric owner of the dataset the portal serves (check with:
+        #   ls -dn /mnt/tank/clients
+        # and set PUID/PGID to that "uid:gid"). This makes uploaded/browsed
+        # files owned by the same user that owns the SMB share.
+        PUID: ${PUID:-3000}
+        PGID: ${PGID:-3000}
+    image: client-portal:latest
     container_name: client-portal
     restart: unless-stopped
-    ports:
-      - "${PORTAL_PORT:-8080}:8080"
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/api/branding"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    # For local-only access (no tunnel) expose a host port.
+    # When using the cloudflared tunnel service below, comment this out
+    # and use the `network_mode: service:client-portal` on the tunnel.
+    # ports:
+    #   - "${PORTAL_PORT:-8080}:8080"
     environment:
       PORTAL_STORAGE_ROOT: /data/files
       PORTAL_DATA_DIR: /data/portal
-      PORTAL_ADMIN_PASSWORD: ${PORTAL_ADMIN_PASSWORD}
+      PORTAL_ADMIN_PASSWORD: ${PORTAL_ADMIN_PASSWORD:-CHANGE_ME}
+      PORTAL_TRUST_PROXY: "true"
     volumes:
+      # >>> The SMB dataset the portal serves: point this at the TrueNAS
+      # dataset that is (or will become) your SMB share, e.g.
+      #   PORTAL_FILES_PATH=/mnt/tank/clients
       - "${PORTAL_FILES_PATH:-/mnt/tank/clients}:/data/files:rw"
-      - "${PORTAL_DATA_PATH:-/mnt/tank/portal-data}:/data/portal"
+      # Small folder for the portal database, logo and secret key.
+      - "${PORTAL_DATA_PATH:-/mnt/tank/portal-data}:/data/portal:rw"
+
+  # ---------- Cloudflare Tunnel (optional) ----------------------------------
+  # Uncomment the entire service to expose through a Cloudflare tunnel.
+  # 1. Go to https://one.dash.cloudflare.com → Networks → Tunnels
+  # 2. Create a tunnel and copy its token.
+  # 3. Paste the token as the value of CLOUDFLARED_TOKEN in your .env file.
+  # 4. In the Cloudflare dashboard, route your hostname (e.g. files.example.com)
+  #    to the tunnel and set the service to http://localhost:8080.
+  # The container shares the portal's network so it reaches it on port 8080.
+  #
+  # cloudflared:
+  #   image: cloudflare/cloudflared:latest
+  #   container_name: cloudflared
+  #   restart: unless-stopped
+  #   command: tunnel --no-autoupdate run --token ${CLOUDFLARED_TOKEN}
+  #   network_mode: "service:client-portal"
+  #   depends_on:
+  #     - client-portal

@@ -5,3 +5,6 @@ __pycache__/
 files/
 data/
 portal.db
+frontend/node_modules/
+frontend/bun.lock
+static/
