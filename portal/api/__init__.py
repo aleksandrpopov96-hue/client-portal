@@ -6,9 +6,10 @@ from ..security import csrf_ok
 from .admin import admin_bp, brand_bp
 from .auth import auth_bp
 from .browser import browser_bp
+from .browser_admin import browser_admin_bp
 from .public import public_bp
 
-blueprints = [auth_bp, public_bp, browser_bp, admin_bp]
+blueprints = [auth_bp, public_bp, browser_bp, browser_admin_bp, admin_bp]
 
 
 def apply_runtime_settings(app) -> None:

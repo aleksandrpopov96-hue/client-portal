@@ -8,6 +8,7 @@ const routes = [
   { path: '/s/:token', name: 'share', component: () => import('../views/ShareView.vue') },
   { path: '/admin/login', name: 'admin-login', component: () => import('../views/AdminLogin.vue') },
   { path: '/admin', name: 'admin-home', component: () => import('../views/AdminDashboard.vue'), meta: { admin: true } },
+  { path: '/admin/browser', name: 'admin-browser', component: () => import('../views/AdminBrowser.vue'), meta: { admin: true } },
   { path: '/admin/shares', name: 'admin-shares', component: () => import('../views/AdminShares.vue'), meta: { admin: true } },
   { path: '/admin/shares/new', name: 'admin-share-new', component: () => import('../views/AdminShareForm.vue'), meta: { admin: true } },
   { path: '/admin/shares/:id/edit', name: 'admin-share-edit', component: () => import('../views/AdminShareForm.vue'), meta: { admin: true } },

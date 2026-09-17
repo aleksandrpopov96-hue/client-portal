@@ -42,6 +42,7 @@ const route = useRoute()
 
 const nav = [
   { to: '/admin', title: 'Dashboard', icon: 'mdi-view-dashboard-outline' },
+  { to: '/admin/browser', title: 'Files', icon: 'mdi-folder-multiple-outline' },
   { to: '/admin/shares', title: 'Client shares', icon: 'mdi-link-variant' },
   { to: '/admin/users', title: 'Users', icon: 'mdi-account-group-outline' },
   { to: '/admin/branding', title: 'Branding', icon: 'mdi-palette-outline' },

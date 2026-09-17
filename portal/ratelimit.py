@@ -140,6 +140,9 @@ def register_limiter_rules(app) -> None:
         "api_browser.zip_route": _rate("RATELIMIT_DOWNLOAD_PER_MIN"),
         "api_public.share_upload": _rate("RATELIMIT_UPLOAD_CHUNK_PER_MIN"),
         "api_browser.upload": _rate("RATELIMIT_UPLOAD_CHUNK_PER_MIN"),
+        "api_browser_admin.download": _rate("RATELIMIT_DOWNLOAD_PER_MIN"),
+        "api_browser_admin.zip_route": _rate("RATELIMIT_DOWNLOAD_PER_MIN"),
+        "api_browser_admin.upload": _rate("RATELIMIT_UPLOAD_CHUNK_PER_MIN"),
     }
 
     for endpoint, limit in rules.items():

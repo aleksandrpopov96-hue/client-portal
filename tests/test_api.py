@@ -183,6 +183,40 @@ class PortalTest(unittest.TestCase):
         resp = self.client.get(f"/api/s/{token}/preview", query_string={"path": "script.js"})
         self.assertIn("text/plain", resp.content_type)
 
+    def test_admin_browser(self):
+        self.client.post("/api/admin/login", json={"username": "admin", "password": "test-admin-password"}, headers=self.headers())
+        # ls root sees every folder under the storage root
+        r = self.client.get("/api/admin/browser/ls")
+        self.assertEqual(r.status_code, 200, r.json)
+        names = {e["name"] for e in r.json["entries"]}
+        self.assertIn("acme", names)
+        self.assertIn("notes.txt", names)
+        # upload
+        r = self.client.post(
+            "/api/admin/browser/upload",
+            data={"path": "acme", "file": (BytesIO(b"new data"), "up.bin")},
+            headers=self.headers(),
+        )
+        self.assertEqual(r.status_code, 200, r.json)
+        self.assertTrue((self.storage / "acme" / "up.bin").exists())
+        # mkdir
+        r = self.client.post("/api/admin/browser/mkdir", data={"path": "", "name": "newdir"}, headers=self.headers())
+        self.assertEqual(r.status_code, 200, r.json)
+        self.assertTrue((self.storage / "newdir").is_dir())
+        # download + preview
+        r = self.client.get("/api/admin/browser/download", query_string={"path": "acme/brief.pdf"})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.data, b"%PDF-1.4 fake pdf")
+        r = self.client.get("/api/admin/browser/preview", query_string={"path": "notes.txt"})
+        self.assertEqual(r.status_code, 200)
+        # delete
+        r = self.client.post("/api/admin/browser/delete", data={"path": "acme/up.bin"}, headers=self.headers())
+        self.assertEqual(r.status_code, 200, r.json)
+        self.assertFalse((self.storage / "acme" / "up.bin").exists())
+        # admin browser must require admin
+        self.client.post("/api/admin/logout", headers=self.headers())
+        self.assertEqual(self.client.get("/api/admin/browser/ls").status_code, 401)
+
     def test_share_password_gate(self):
         self.client.post(
             "/api/admin/login", json={"username": "admin", "password": "test-admin-password"}, headers=self.headers()
